@@ -135,63 +135,70 @@ fi
 #********************************************************************
 # If the requested data is in cols: (user has passed -cols parameter)
 #********************************************************************
-if [[ "$1" == -c* ]]; then
-   #Output result header
-   printf "\t* Average *\t* Median *\n" | cat >> $temp_file
-   
-   #count the rows and cols in the input
-	numOfRows=0
-	numOfCols=0
-	runningColSum=0
-	catColumn=""
+if [[ $1 == -c* ]]; then
+
+	#print header and concatenate it to the temp file
+	printf "\t* Average *\t* Median *\n" | cat >> $temp_file
 	
-	#figure out how many columns there are
-	firstLine=$(head -1 "$2")
-	numOfCols=$(echo $firstLine | wc -w)
-		
-	# Now add up all the columns
-	colAvg=0
-	printf "num of cols: $numOfCols\n"
+	#find length for outer loop to run
+	numRows=$(head -1 $2)
 	
-	#for each column in the file, cut its value from each row
-	for index in {1..$numOfCols}
+	colSum=0
+	idx=0
+
+	for i in {1..$numRows}
 	do
-		#Cut column index in each row
-		while read -r row
-		do
-		prepForCut=$(echo $row | tr "	" "/" | tr "  " "/")
-		printf "row: $prepForCut\n"
-		column=$(echo $prepForCut | cut -d "/" -f 2)
-		printf "thisCol: $column"
-		runningColSum=$(expr $runningColSum + $column)
-		catColumn="$catColumn $column"
-		done < $2
+		columnToString=""
+		#making a manual interator because nothing else is working
+		idx=$(expr $idx + 1)
 		
-		printf "col: $catColumn\n"
-		#Get column average
-		avgValueC=$(expr $runningColSum / $numOfCols) 
+		while read row 
+		do
+		#use wc -w to get word count of the whole line == number of elements
+        elementsC=$(echo $row | wc -w)
+		printf "INDEX: $idx\n"
+		
+		# grab each row of data and clean it up
+		cleanedRow=$(echo $row | tr "	" " ")
+		printf "CLEANEDROW: $cleanedRow\n"
+		#use cut to get the value for the column:
+        colVal=$(echo $cleanedRow | cut -d " " -f $idx)
+		printf "COLVAL: $colVal\n"
+		
+		columnToString+="$colVal "
+		printf "COLUMN: $columnToString\n"
+		
+		colSum=$(expr $colSum + $colVal)
+		#printf "COLSUM: $colSum\n"
+		done < "${2:-/dev/stdin}"
+		
+		colAvg=$(expr $colSum / $elementsC)
+		colSum=0
 		
 	#*******************************************************************
-	# Get the median of this col
+	# Get the median of this row
 	#********************************************************************
 		# use translate to replace all tabs with newlines
-		prepSort=$(echo $catColumn | tr "	" "\n")
+		prepForSort=$(echo $columnToString | tr "	" "\n")
+		#printf "presort = $prepForSort\n"
 	  
 		#for some reason it only works if I do it all on one line
-		sortedC=$(echo $prepSort | tr " " "\n" | sort -g)
-		oneLine=$(echo $sortedC | tr "\n" " ")
+		sorted=$(echo $prepForSort | tr " " "\n" | sort -g)
+		oneLineSorted=$(echo $sorted | tr "\n" " ")
+		#printf "POST = $oneLineSorted\n"
 	  
-		#Get the median (the midway point plus 1)
-		halfListC=$(expr $numOfCols / 2)
-		medianIndexC=$(expr $halfListC + 1)
-		#use cut to get the value:
-		medianValueC=$(echo $oneLine | cut -d " " -f $medianIndexC)
-	
+      #Get the median (the midway point plus 1)
+      halfList=$(expr $elements / 2)
+	  medianIndex=$(expr $halfList + 1)
+	  #use cut to get the value:
+      colMedianValue=$(echo $oneLineSorted | cut -d " " -f $medianIndex)
 		
-		printf "\t$avgValueC\t\t$medianValueC\n" | cat >> $temp_file
+		
+		
+		printf "\t $colAvg \t\t$colMedianValue\n" | cat >> $temp_file
 	done
 fi
-
+	
 #print temp file
 cat $temp_file
 
