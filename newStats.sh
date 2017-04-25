@@ -16,7 +16,10 @@ FAILED_EXECUTION=1
 temp_file="tempfile$$"
 
 #Set a trap which, on interrupt, hangup, or termination, deletes the temporary file temp_file.
-trap "rm -f $temp_file; exit 1" INT HUP TERM
+#trap "rm -f $temp_file; " EXIT INT HUP TERM
+trap 'rm -f $temp_file temp_file; exit' INT HUP TERM
+#trap 'rm -f temp*; exit' INT HUP TERM
+#trap 'rm -f /tmp/xyz$$; exit' ERR EXIT
 
 #********************************************************************
 # U S A G E  F U N C T I O N
@@ -54,13 +57,13 @@ fi
 # Get user input
 
 if [ $# == 1 ]; then
-	   if [[ "$1" == -row* ]] || [[ "$1" == -col* ]]; then
+	   if [[ "$1" == -r* ]] || [[ "$1" == -c* ]]; then
 
-		printf "Input some integers separated by spaces, or <ENTER> for a new row\n"
+		#printf "Input some integers separated by spaces, or <ENTER> for a new row\n"
 		#put user input into temp_file
 		while read input
 		do
-		   printf "Keep going! Type ctrl+d when finished.\n"
+		   #printf "Keep going! Type ctrl+d when finished.\n"
 		   echo $input >> temp_file
 		   printf "\n"
 		done
@@ -135,7 +138,6 @@ if [[ "$1" == -r* ]]; then
 	  
 	  printf "\t$avgValue\t\t$medianValue\n" | cat >> $temp_file
 	done < "${2:-/dev/stdin}" #Read from file or input
-fi
 
 #********************************************************************
 # C O L U M N S
@@ -143,10 +145,10 @@ fi
 #********************************************************************
 # If the requested data is in cols: (user has passed -cols parameter)
 #********************************************************************
-if [[ $1 == -c* ]]; then
+elif [[ $1 == -c* ]]; then
 
 	#print header and concatenate it to the temp file
-	printf "\t* Average *\t* Median *\n" | cat >> $temp_file
+	printf "* Averages: *\n" | cat >> $temp_file
 	
 	#find length for outer loop to run
 	numRows=$(head -1 $2)
@@ -158,6 +160,8 @@ if [[ $1 == -c* ]]; then
 	done < $2
 	
 	idx=0
+	printed=0
+	medianString=""
 
 	for i in {1..$numRows}
 	do
@@ -220,12 +224,24 @@ if [[ $1 == -c* ]]; then
 		#use cut to get the value:
 		colMedianValue=$(echo $sortFinished | cut -d " " -f $medianIndex)
 		
-		printf "\t $colAvg \t\t$colMedianValue\n" | cat >> $temp_file
+		printf "$colAvg\t" | cat >> $temp_file
+		
+		#using a string to store median values since I missed the memo about proper formatting and did it backwards
+		medianString+="$colMedianValue\t"
 	done
+	
+	printf "\n* Medians: *\n" | cat >> $temp_file
+	printf "$medianString" | cat >> $temp_file
+	
+#if the user has reached this point, something is wrong. throw an error	
+else
+	usage
+	exit $FAILED_EXECUTION
 fi
 	
-#print temp file
+#print output
 cat $temp_file
 
-#remove the tempfile
+#remove the output file
 rm -f $temp_file
+rm -f 'temp_file'
