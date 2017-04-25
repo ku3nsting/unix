@@ -96,7 +96,7 @@ if [[ "$1" == -r* ]]; then
       elements=$(echo $row | wc -w)
 
     #*******************************************************************
-	# Get the sum of this line
+	# Get the sum of this row
 	#********************************************************************
       rowSum=0
       for each in $row
@@ -107,7 +107,15 @@ if [[ "$1" == -r* ]]; then
     #*******************************************************************
 	# Get the average of this row
 	#********************************************************************
-      avgValue=$(expr $rowSum / $elements )
+      	#rounding!
+	    checkRoundRow=$(expr $rowSum % $elements)
+		moreThanHalf=$(expr $elements / 2)
+	      if [[ $checkRoundRow > $moreThanHalf ]]; then
+			rowAvg=$(expr $rowSum / $elements + 1)
+		  else
+			rowAvg=$(expr $rowSum / $elements)
+	      fi
+	  avgValue=$rowAvg
 
 	#*******************************************************************
 	# Get the median of this row
@@ -143,11 +151,18 @@ if [[ $1 == -c* ]]; then
 	#find length for outer loop to run
 	numRows=$(head -1 $2)
 	
-	colSum=0
+	lengthOfCols=0
+	while read line
+	do
+		lengthOfCols=$(expr $lengthOfCols + 1)
+	done < $2
+	
 	idx=0
 
 	for i in {1..$numRows}
 	do
+		colAvg=0
+		colSum=0
 		columnToString=""
 		#making a manual interator because nothing else is working
 		idx=$(expr $idx + 1)
@@ -156,44 +171,54 @@ if [[ $1 == -c* ]]; then
 		do
 		#use wc -w to get word count of the whole line == number of elements
         elementsC=$(echo $row | wc -w)
-		printf "INDEX: $idx\n"
+		#printf "INDEX: $idx\n"
 		
 		# grab each row of data and clean it up
 		cleanedRow=$(echo $row | tr "	" " ")
-		printf "CLEANEDROW: $cleanedRow\n"
+		#printf "CLEANEDROW: $cleanedRow\n"
 		#use cut to get the value for the column:
         colVal=$(echo $cleanedRow | cut -d " " -f $idx)
-		printf "COLVAL: $colVal\n"
+		#printf "COLVAL: $colVal\n"
 		
 		columnToString+="$colVal "
-		printf "COLUMN: $columnToString\n"
+		#printf "COLUMN: $columnToString\n"
 		
+		#*****************************************************************
+		# Get the sum of this column
+		#*****************************************************************
 		colSum=$(expr $colSum + $colVal)
 		#printf "COLSUM: $colSum\n"
 		done < "${2:-/dev/stdin}"
 		
-		colAvg=$(expr $colSum / $elementsC)
-		colSum=0
+		#*****************************************************************
+		# Get the average of this column
+		#*****************************************************************
+		#rounding!
+	    checkRound=$(expr $colSum % $lengthOfCols)
+		moreThanHalf=$(expr $lengthOfCols / 2 - 1)
+	      if [[ $checkRound > $moreThanHalf ]]; then
+			colAvg=$(expr $colSum / $lengthOfCols + 1)
+		  else
+			colAvg=$(expr $colSum / $lengthOfCols)
+	      fi
 		
-	#*******************************************************************
-	# Get the median of this row
-	#********************************************************************
+		#****************************************************************
+		# Get the median of this column
+		#****************************************************************
 		# use translate to replace all tabs with newlines
-		prepForSort=$(echo $columnToString | tr "	" "\n")
+		prepColSort=$(echo $columnToString | tr " " "\n")
 		#printf "presort = $prepForSort\n"
 	  
 		#for some reason it only works if I do it all on one line
-		sorted=$(echo $prepForSort | tr " " "\n" | sort -g)
-		oneLineSorted=$(echo $sorted | tr "\n" " ")
-		#printf "POST = $oneLineSorted\n"
+		sortedCol=$(echo $prepColSort | tr " " "\n" | sort -g)
+		sortFinished=$(echo $sortedCol | tr "\n" " ")
+		#printf "POST = $sortFinished\n"
 	  
-      #Get the median (the midway point plus 1)
-      halfList=$(expr $elements / 2)
-	  medianIndex=$(expr $halfList + 1)
-	  #use cut to get the value:
-      colMedianValue=$(echo $oneLineSorted | cut -d " " -f $medianIndex)
-		
-		
+		#Get the median (the midway point plus 1)
+		halfCol=$(expr $elementsC / 2)
+		medianIndex=$(expr $halfCol + 1)
+		#use cut to get the value:
+		colMedianValue=$(echo $sortFinished | cut -d " " -f $medianIndex)
 		
 		printf "\t $colAvg \t\t$colMedianValue\n" | cat >> $temp_file
 	done
